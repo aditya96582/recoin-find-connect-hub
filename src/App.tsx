@@ -8,6 +8,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { ChatProvider } from "./contexts/ChatContext";
 
 // Pages
+import Universal from "./pages/Universal";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import LostItems from "./pages/LostItems";
@@ -27,7 +28,8 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
-              <Route path="/" element={<Index />} />
+              <Route path="/" element={<Universal />} />
+              <Route path="/home" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/lost-items" element={<LostItems />} />
               <Route path="/found-items" element={<FoundItems />} />

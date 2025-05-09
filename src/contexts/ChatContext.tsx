@@ -1,7 +1,8 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { useAuth, User } from "./AuthContext";
+import { useAuth } from "./AuthContext";
 import { useToast } from "@/components/ui/use-toast";
+import { sampleLostItems, sampleFoundItems, sampleDonationItems } from "@/utils/dummyData";
 
 export type Message = {
   id: string;
@@ -17,6 +18,7 @@ export type Conversation = {
   participants: string[];
   lastMessage?: Message;
   itemId: string;
+  itemTitle?: string; // Added item title for better display
   itemType: "lost" | "found" | "donation";
   isActive: boolean;
 };
@@ -55,7 +57,16 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (storedConversations) {
         try {
           const parsedConversations = JSON.parse(storedConversations);
-          setConversations(parsedConversations);
+          
+          // Convert string timestamps back to Date objects for lastMessage
+          const conversationsWithDateObjects = parsedConversations.map((conv: any) => ({
+            ...conv,
+            lastMessage: conv.lastMessage 
+              ? { ...conv.lastMessage, timestamp: new Date(conv.lastMessage.timestamp) } 
+              : undefined
+          }));
+          
+          setConversations(conversationsWithDateObjects);
         } catch (error) {
           console.error("Failed to parse stored conversations:", error);
         }
@@ -101,6 +112,24 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [messages, activeConversation]);
 
+  // Helper to find item title from the item ID
+  const findItemTitle = (itemId: string, itemType: "lost" | "found" | "donation") => {
+    let title = "";
+    
+    if (itemType === "lost") {
+      const item = sampleLostItems.find(item => item.id === itemId);
+      title = item?.title || "";
+    } else if (itemType === "found") {
+      const item = sampleFoundItems.find(item => item.id === itemId);
+      title = item?.title || "";
+    } else if (itemType === "donation") {
+      const item = sampleDonationItems.find(item => item.id === itemId);
+      title = item?.title || "";
+    }
+    
+    return title;
+  };
+
   const sendMessage = (content: string, receiverId: string, itemId: string, itemType: "lost" | "found" | "donation") => {
     if (!currentUser) {
       toast({
@@ -130,6 +159,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       read: false,
     };
 
+    // Find item title
+    const itemTitle = findItemTitle(itemId, itemType);
+
     // Check if we already have a conversation with this receiver about this item
     let conversation = conversations.find(
       c => c.participants.includes(receiverId) && 
@@ -139,7 +171,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
 
     if (conversation) {
-      // Update existing conversation
+      // Update existing conversation with new message
       setMessages(prev => [...prev, newMessage]);
       
       // Update last message in conversation
@@ -162,6 +194,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         participants: [currentUser.id, receiverId],
         lastMessage: newMessage,
         itemId,
+        itemTitle,
         itemType,
         isActive: true
       };
@@ -196,12 +229,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setActiveConversation(null);
     }
     
+    // In a real-world app with a backend, we'd also update the related item listing status
+    // For now, we'll just update the local state to simulate that behavior
+    
     toast({
       title: "Marked as resolved",
       description: "This conversation has been marked as resolved",
     });
-
-    // In a real app, you might also want to update the related item listing status
   };
 
   const getUnreadCount = (userId: string) => {
