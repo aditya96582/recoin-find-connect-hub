@@ -1,412 +1,136 @@
-
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import Navbar from '@/components/Navbar';
-import ItemCard from '@/components/ItemCard';
-import ImageUpload from '@/components/ImageUpload';
-import { useAuth } from '@/contexts/AuthContext';
-import { useChat } from '@/contexts/ChatContext';
-import { LostItem, sampleLostItems } from '@/utils/dummyData';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { useToast } from '@/components/ui/use-toast';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import React, { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useAuth } from "@/contexts/AuthContext";
+import { useItems } from "@/contexts/ItemContext";
+import { useNotifications } from "@/contexts/NotificationContext";
+import Navbar from "@/components/Navbar";
+import { categories } from "@/data/mockData";
+import { Search, Plus, MapPin, Calendar, Coins, Brain } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const LostItems = () => {
-  const [items, setItems] = useState<LostItem[]>(sampleLostItems);
-  const [selectedItem, setSelectedItem] = useState<LostItem | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [chatDialogOpen, setChatDialogOpen] = useState(false);
-  
-  // New item form state
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('');
-  const [location, setLocation] = useState('');
-  const [images, setImages] = useState<string[]>([]);
-  const [reward, setReward] = useState('');
-  const [lastSeenDate, setLastSeenDate] = useState('');
-  
   const { currentUser, isAuthenticated } = useAuth();
-  const { sendMessage } = useChat();
-  const { toast } = useToast();
+  const { lostItems, foundItems, addLostItem, addFoundItem, runAIMatch } = useItems();
+  const { addNotification } = useNotifications();
   const navigate = useNavigate();
-  
-  const handleContactClick = (item: LostItem) => {
-    setSelectedItem(item);
-    
-    if (!isAuthenticated) {
-      toast({
-        title: "Login Required",
-        description: "Please login to contact the owner",
-        variant: "destructive"
-      });
-      navigate('/auth');
-      return;
+  const [tab, setTab] = useState<'lost' | 'found'>('lost');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [matching, setMatching] = useState(false);
+  const [form, setForm] = useState({ title: '', description: '', category: '', location: '', reward: '0' });
+
+  useEffect(() => { if (!isAuthenticated) navigate('/auth'); }, [isAuthenticated]);
+
+  const handleAdd = () => {
+    if (!currentUser || !form.title || !form.category || !form.location) return;
+    if (tab === 'lost') {
+      addLostItem({ ...form, date: new Date().toISOString().split('T')[0], reward: parseInt(form.reward) || 0, userId: currentUser.id, userName: currentUser.name, aiGenerated: !form.description });
+    } else {
+      addFoundItem({ ...form, date: new Date().toISOString().split('T')[0], userId: currentUser.id, userName: currentUser.name });
     }
-    
-    setChatDialogOpen(true);
+    setForm({ title: '', description: '', category: '', location: '', reward: '0' });
+    setShowAddDialog(false);
   };
-  
-  const handleChatSubmit = (message: string) => {
-    if (!currentUser || !selectedItem) return;
-    
-    // Send message to the item owner
-    sendMessage(
-      message,
-      selectedItem.postedBy.id,
-      selectedItem.id,
-      'lost'
-    );
-    
-    setChatDialogOpen(false);
-    navigate('/chat');
-  };
-  
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!currentUser) {
-      toast({
-        title: "Login Required",
-        description: "Please login to post a lost item",
-        variant: "destructive"
-      });
-      navigate('/auth');
-      return;
+
+  const handleAIMatch = async () => {
+    setMatching(true);
+    await new Promise(r => setTimeout(r, 2000));
+    const newMatches = runAIMatch();
+    setMatching(false);
+    if (newMatches.length > 0) {
+      addNotification({ type: 'match', title: '🔥 New Matches Found!', description: `AI found ${newMatches.length} possible match(es)`, actionUrl: '/matches' });
     }
-    
-    if (!title || !description || !category || !location || images.length === 0) {
-      toast({
-        title: "Missing Information",
-        description: "Please fill out all required fields and add at least one image",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    // Create new lost item
-    const newItem: LostItem = {
-      id: `lost_${Date.now()}`,
-      title,
-      description,
-      images,
-      location,
-      category,
-      postedBy: {
-        id: currentUser.id,
-        name: currentUser.name
-      },
-      postedDate: new Date(),
-      lastSeenDate: lastSeenDate ? new Date(lastSeenDate) : new Date(),
-      reward: reward || undefined,
-      isActive: true
-    };
-    
-    // Add to items list
-    setItems([newItem, ...items]);
-    
-    // Reset form
-    setTitle('');
-    setDescription('');
-    setCategory('');
-    setLocation('');
-    setImages([]);
-    setReward('');
-    setLastSeenDate('');
-    
-    // Close dialog
-    setDialogOpen(false);
-    
-    toast({
-      title: "Item Posted",
-      description: "Your lost item has been posted successfully"
-    });
   };
-  
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined);
-  
-  const filteredItems = items.filter(item => {
-    const matchesSearch = searchTerm === '' || 
-      item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.location.toLowerCase().includes(searchTerm.toLowerCase());
-      
-    const matchesCategory = !selectedCategory || item.category === selectedCategory;
-    
-    return matchesSearch && matchesCategory && item.isActive;
-  });
-  
-  // Get unique categories
-  const categories = Array.from(new Set(items.map(item => item.category)));
-  
+
+  const items = tab === 'lost' ? lostItems : foundItems;
+  const filtered = items.filter(i => i.title.toLowerCase().includes(searchQuery.toLowerCase()) || i.description.toLowerCase().includes(searchQuery.toLowerCase()));
+
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="min-h-screen">
       <Navbar />
-      
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
+      <div className="container mx-auto px-4 pt-20 pb-10">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div>
-            <h1 className="text-3xl font-bold mb-2">Lost Items</h1>
-            <p className="text-muted-foreground">
-              Browse lost items or report something you've lost
-            </p>
+            <h1 className="text-3xl font-bold">Lost & <span className="text-gradient">Found</span></h1>
+            <p className="text-muted-foreground text-sm">AI-powered item recovery system</p>
           </div>
-          
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="mt-4 md:mt-0 bg-recoin-primary hover:bg-recoin-primary/90">
-                Report a Lost Item
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Report a Lost Item</DialogTitle>
-                <DialogDescription>
-                  Provide details about your lost item to help others find it.
-                </DialogDescription>
-              </DialogHeader>
-              
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="title">Item Title *</Label>
-                  <Input
-                    id="title"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="e.g., Black Leather Wallet"
-                    required
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="description">Description *</Label>
-                  <Textarea
-                    id="description"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Describe your item in detail..."
-                    rows={4}
-                    required
-                  />
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="category">Category *</Label>
-                    <Select value={category} onValueChange={setCategory} required>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Personal Items">Personal Items</SelectItem>
-                        <SelectItem value="Electronics">Electronics</SelectItem>
-                        <SelectItem value="Accessories">Accessories</SelectItem>
-                        <SelectItem value="Pets">Pets</SelectItem>
-                        <SelectItem value="Clothing">Clothing</SelectItem>
-                        <SelectItem value="Documents">Documents</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
-                      </SelectContent>
+          <div className="flex gap-3">
+            <Button onClick={handleAIMatch} variant="outline" disabled={matching} className="glow-primary">
+              <Brain className="mr-2 h-4 w-4" />{matching ? 'Matching...' : 'Run AI Match'}
+            </Button>
+            <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+              <DialogTrigger asChild><Button><Plus className="mr-2 h-4 w-4" />Report Item</Button></DialogTrigger>
+              <DialogContent className="glass-strong">
+                <DialogHeader><DialogTitle>Report {tab === 'lost' ? 'Lost' : 'Found'} Item</DialogTitle></DialogHeader>
+                <div className="space-y-4">
+                  <div className="flex gap-2">
+                    <Button variant={tab === 'lost' ? 'default' : 'outline'} onClick={() => setTab('lost')} className="flex-1">Lost</Button>
+                    <Button variant={tab === 'found' ? 'default' : 'outline'} onClick={() => setTab('found')} className="flex-1">Found</Button>
+                  </div>
+                  <div><Label>Title</Label><Input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="e.g. Black Nike Backpack" className="bg-secondary/50" /></div>
+                  <div><Label>Description</Label><Textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Detailed description..." className="bg-secondary/50" /></div>
+                  <div><Label>Category</Label>
+                    <Select value={form.category} onValueChange={v => setForm({ ...form, category: v })}>
+                      <SelectTrigger className="bg-secondary/50"><SelectValue placeholder="Select category" /></SelectTrigger>
+                      <SelectContent>{categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="location">Last Seen Location *</Label>
-                    <Input
-                      id="location"
-                      value={location}
-                      onChange={(e) => setLocation(e.target.value)}
-                      placeholder="e.g., Central Park"
-                      required
-                    />
-                  </div>
+                  <div><Label>Location</Label><Input value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} placeholder="Where was it lost/found?" className="bg-secondary/50" /></div>
+                  {tab === 'lost' && <div><Label>Reward (Tokens)</Label><Input type="number" value={form.reward} onChange={e => setForm({ ...form, reward: e.target.value })} className="bg-secondary/50" /></div>}
+                  <Button onClick={handleAdd} className="w-full">Submit Report</Button>
                 </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="lastSeenDate">Last Seen Date</Label>
-                    <Input
-                      id="lastSeenDate"
-                      type="date"
-                      value={lastSeenDate}
-                      onChange={(e) => setLastSeenDate(e.target.value)}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="reward">Reward (optional)</Label>
-                    <Input
-                      id="reward"
-                      value={reward}
-                      onChange={(e) => setReward(e.target.value)}
-                      placeholder="e.g., $50"
-                    />
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>Images *</Label>
-                  <ImageUpload
-                    value={images}
-                    onChange={setImages}
-                    maxImages={5}
-                  />
-                </div>
-                
-                <DialogFooter>
-                  <Button type="submit" className="bg-recoin-primary hover:bg-recoin-primary/90">
-                    Post Lost Item
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
-        
-        {/* Filters */}
-        <Card className="mb-6 p-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="col-span-2">
-              <Label htmlFor="search" className="mb-2 block">Search</Label>
-              <Input
-                id="search"
-                placeholder="Search by title, description, or location..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="category-filter" className="mb-2 block">Filter by Category</Label>
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Categories" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={undefined}>All Categories</SelectItem>
-                  {categories.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </Card>
-        
-        {/* Items Grid */}
-        {filteredItems.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredItems.map((item) => (
-              <ItemCard
-                key={item.id}
-                item={item}
-                type="lost"
-                onContactClick={() => handleContactClick(item)}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-12">
-            <h3 className="text-xl font-semibold mb-2">No Lost Items Found</h3>
-            <p className="text-muted-foreground mb-4">
-              No items match your search criteria or there are no lost items posted yet.
-            </p>
-            <Button 
-              onClick={() => setDialogOpen(true)}
-              className="bg-recoin-primary hover:bg-recoin-primary/90"
-            >
-              Report a Lost Item
-            </Button>
-          </div>
+
+        <div className="flex gap-2 mb-6">
+          <Button variant={tab === 'lost' ? 'default' : 'outline'} onClick={() => setTab('lost')}>Lost Items ({lostItems.filter(i => i.status === 'active').length})</Button>
+          <Button variant={tab === 'found' ? 'default' : 'outline'} onClick={() => setTab('found')}>Found Items ({foundItems.filter(i => i.status === 'active').length})</Button>
+        </div>
+
+        <div className="relative mb-6">
+          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+          <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search items..." className="pl-10 bg-secondary/50" />
+        </div>
+
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filtered.map((item, i) => (
+            <motion.div key={item.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
+              <Card className={`glass hover:glow-primary transition-all ${item.status === 'resolved' ? 'opacity-50' : ''}`}>
+                <CardContent className="p-5">
+                  <div className="flex items-start justify-between mb-3">
+                    <Badge className={tab === 'lost' ? 'bg-destructive/20 text-destructive border-destructive/30' : 'bg-green-500/20 text-green-400 border-green-500/30'}>
+                      {tab === 'lost' ? 'Lost' : 'Found'} • {item.status}
+                    </Badge>
+                  </div>
+                  <h3 className="font-semibold mb-2">{item.title}</h3>
+                  <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{item.description}</p>
+                  <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1"><MapPin className="h-3 w-3" />{item.location}</div>
+                    <div className="flex items-center gap-1"><Calendar className="h-3 w-3" />{item.date}</div>
+                  </div>
+                  {'reward' in item && (item as any).reward > 0 && (
+                    <div className="mt-3 flex items-center gap-1 text-sm font-medium text-warning"><Coins className="h-4 w-4" /> {(item as any).reward} tokens reward</div>
+                  )}
+                  <div className="mt-3 text-xs text-muted-foreground">By {item.userName}</div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+        {filtered.length === 0 && (
+          <div className="text-center py-20 text-muted-foreground"><Search className="h-12 w-12 mx-auto mb-4 opacity-50" /><p>No items found</p></div>
         )}
       </div>
-      
-      {/* Chat Dialog */}
-      <Dialog open={chatDialogOpen} onOpenChange={setChatDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Contact About {selectedItem?.title}</DialogTitle>
-            <DialogDescription>
-              Send a message to {selectedItem?.postedBy.name} about their lost item.
-            </DialogDescription>
-          </DialogHeader>
-          
-          {selectedItem && (
-            <div className="space-y-4">
-              <div className="p-3 bg-muted rounded-md">
-                <p className="font-medium">{selectedItem.title}</p>
-                <p className="text-sm text-muted-foreground truncate">{selectedItem.description}</p>
-              </div>
-              
-              <Tabs defaultValue="found">
-                <TabsList className="w-full">
-                  <TabsTrigger value="found" className="flex-1">I Found This</TabsTrigger>
-                  <TabsTrigger value="info" className="flex-1">Request Info</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="found" className="space-y-4 mt-4">
-                  <Textarea 
-                    placeholder="Describe where and when you found this item..."
-                    className="min-h-[100px]"
-                    id="found-message"
-                  />
-                  <Button 
-                    className="w-full bg-recoin-primary hover:bg-recoin-primary/90" 
-                    onClick={() => {
-                      const message = (document.getElementById('found-message') as HTMLTextAreaElement).value;
-                      if (message.trim()) {
-                        handleChatSubmit(`I found your item: ${message}`);
-                      } else {
-                        toast({
-                          title: "Message Required",
-                          description: "Please enter a message",
-                          variant: "destructive"
-                        });
-                      }
-                    }}
-                  >
-                    Send Message
-                  </Button>
-                </TabsContent>
-                
-                <TabsContent value="info" className="space-y-4 mt-4">
-                  <Textarea 
-                    placeholder="Ask for more details about this item..."
-                    className="min-h-[100px]"
-                    id="info-message"
-                  />
-                  <Button 
-                    className="w-full bg-recoin-primary hover:bg-recoin-primary/90" 
-                    onClick={() => {
-                      const message = (document.getElementById('info-message') as HTMLTextAreaElement).value;
-                      if (message.trim()) {
-                        handleChatSubmit(message);
-                      } else {
-                        toast({
-                          title: "Message Required",
-                          description: "Please enter a message",
-                          variant: "destructive"
-                        });
-                      }
-                    }}
-                  >
-                    Send Message
-                  </Button>
-                </TabsContent>
-              </Tabs>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
