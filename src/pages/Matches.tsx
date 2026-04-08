@@ -14,7 +14,7 @@ const Matches = () => {
   const { matches } = useItems();
   const navigate = useNavigate();
 
-  if (!isAuthenticated) { navigate('/auth'); return null; }
+  useEffect(() => { if (!isAuthenticated) navigate('/auth'); }, [isAuthenticated]);
 
   return (
     <div className="min-h-screen">

@@ -24,7 +24,7 @@ const Medical = () => {
   const [prescriptionText, setPrescriptionText] = useState('');
   const [scanning, setScanning] = useState(false);
 
-  if (!isAuthenticated) { navigate('/auth'); return null; }
+  useEffect(() => { if (!isAuthenticated) navigate('/auth'); }, [isAuthenticated]);
 
   const addMedRow = () => setMedicines([...medicines, { name: '', dosage: '', quantity: '' }]);
   const updateMed = (i: number, field: string, value: string) => {

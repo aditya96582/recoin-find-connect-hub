@@ -26,7 +26,6 @@ const Chat = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [activeConv?.messages]);
-  }, [activeConv?.messages]);
 
   const handleSend = () => {
     if (!message.trim() || !activeConversation || !currentUser) return;

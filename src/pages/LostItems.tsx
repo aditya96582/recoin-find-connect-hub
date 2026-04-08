@@ -27,7 +27,7 @@ const LostItems = () => {
   const [matching, setMatching] = useState(false);
   const [form, setForm] = useState({ title: '', description: '', category: '', location: '', reward: '0' });
 
-  if (!isAuthenticated) { navigate('/auth'); return null; }
+  useEffect(() => { if (!isAuthenticated) navigate('/auth'); }, [isAuthenticated]);
 
   const handleAdd = () => {
     if (!currentUser || !form.title || !form.category || !form.location) return;

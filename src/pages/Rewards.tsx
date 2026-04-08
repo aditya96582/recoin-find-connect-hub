@@ -13,7 +13,7 @@ const Rewards = () => {
   const { currentUser, isAuthenticated, addTokens } = useAuth();
   const navigate = useNavigate();
 
-  if (!isAuthenticated) { navigate('/auth'); return null; }
+  useEffect(() => { if (!isAuthenticated) navigate('/auth'); }, [isAuthenticated]);
 
   const redeemOptions = [
     { name: 'Jan Aushadhi Kendra', desc: 'Get medicines at discounted prices', cost: 30, icon: Store },

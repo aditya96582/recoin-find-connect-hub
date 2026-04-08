@@ -24,7 +24,7 @@ const Emergency = () => {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [form, setForm] = useState({ type: 'blood' as 'blood' | 'sos' | 'accident', title: '', description: '', location: '', urgency: 'medium' as 'low' | 'medium' | 'critical', bloodType: '' });
 
-  if (!isAuthenticated) { navigate('/auth'); return null; }
+  useEffect(() => { if (!isAuthenticated) navigate('/auth'); }, [isAuthenticated]);
 
   const handleAdd = () => {
     if (!currentUser || !form.title || !form.location) return;

@@ -12,7 +12,7 @@ const Analytics = () => {
   const { lostItems, foundItems, emergencies, medicalRequests, matches } = useItems();
   const navigate = useNavigate();
 
-  if (!isAuthenticated) { navigate('/auth'); return null; }
+  useEffect(() => { if (!isAuthenticated) navigate('/auth'); }, [isAuthenticated]);
 
   const resolved = lostItems.filter(i => i.status === 'resolved').length;
   const total = lostItems.length;
