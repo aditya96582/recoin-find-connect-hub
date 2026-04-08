@@ -17,12 +17,15 @@ const Chat = () => {
   const [message, setMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  if (!isAuthenticated) { navigate('/auth'); return null; }
-
   const activeConv = conversations.find(c => c.id === activeConversation);
 
   useEffect(() => {
+    if (!isAuthenticated) navigate('/auth');
+  }, [isAuthenticated]);
+
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [activeConv?.messages]);
   }, [activeConv?.messages]);
 
   const handleSend = () => {
