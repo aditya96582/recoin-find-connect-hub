@@ -28,18 +28,107 @@ export const useItems = () => {
   return ctx;
 };
 
-function calculateMatch(lost: LostItem, found: FoundItem): number {
+// --- Sophisticated AI Matching ---
+
+const STOP_WORDS = new Set([
+  'the','a','an','is','was','are','were','in','on','at','to','for','of','and','or','but',
+  'with','this','that','it','its','my','i','has','had','have','be','been','not','no','from',
+  'by','as','do','did','so','if','will','can','may','very','just','about','also','into','some',
+]);
+
+function tokenize(text: string): string[] {
+  return text.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 1 && !STOP_WORDS.has(w));
+}
+
+function getBigrams(tokens: string[]): string[] {
+  return tokens.slice(0, -1).map((t, i) => `${t}_${tokens[i + 1]}`);
+}
+
+// TF-IDF-inspired term weighting
+function buildTF(tokens: string[]): Map<string, number> {
+  const tf = new Map<string, number>();
+  for (const t of tokens) tf.set(t, (tf.get(t) || 0) + 1);
+  for (const [k, v] of tf) tf.set(k, v / tokens.length);
+  return tf;
+}
+
+function cosineSimilarity(a: Map<string, number>, b: Map<string, number>): number {
+  let dot = 0, magA = 0, magB = 0;
+  for (const [k, v] of a) { magA += v * v; if (b.has(k)) dot += v * b.get(k)!; }
+  for (const [, v] of b) magB += v * v;
+  if (magA === 0 || magB === 0) return 0;
+  return dot / (Math.sqrt(magA) * Math.sqrt(magB));
+}
+
+const BRAND_KEYWORDS = ['apple','samsung','nike','adidas','sony','dell','hp','lenovo','asus','jbl','boat','realme','xiaomi','oneplus','puma','gucci','louis','canon','nikon'];
+const COLOR_KEYWORDS = ['black','white','red','blue','green','yellow','pink','purple','brown','grey','gray','silver','gold','orange'];
+
+function extractFeatures(text: string) {
+  const lower = text.toLowerCase();
+  const brands = BRAND_KEYWORDS.filter(b => lower.includes(b));
+  const colors = COLOR_KEYWORDS.filter(c => lower.includes(c));
+  return { brands, colors };
+}
+
+function calculateMatch(lost: LostItem, found: FoundItem): { score: number; reasons: string[] } {
   let score = 0;
-  if (lost.category === found.category) score += 30;
-  const lWords = lost.description.toLowerCase().split(/\s+/);
-  const fWords = found.description.toLowerCase().split(/\s+/);
-  const common = lWords.filter(w => w.length > 3 && fWords.includes(w)).length;
-  score += Math.min(40, common * 10);
-  if (lost.location.split(',')[0] === found.location.split(',')[0]) score += 20;
+  const reasons: string[] = [];
+
+  // 1. Category match (25 pts)
+  if (lost.category === found.category) {
+    score += 25;
+    reasons.push(`Same category: ${lost.category}`);
+  }
+
+  // 2. Text similarity via TF-IDF cosine (30 pts max)
+  const lTokens = tokenize(`${lost.title} ${lost.description}`);
+  const fTokens = tokenize(`${found.title} ${found.description}`);
+  const unigramSim = cosineSimilarity(buildTF(lTokens), buildTF(fTokens));
+  const bigramSim = cosineSimilarity(buildTF(getBigrams(lTokens)), buildTF(getBigrams(fTokens)));
+  const textScore = Math.round((unigramSim * 0.6 + bigramSim * 0.4) * 30);
+  if (textScore > 0) {
+    score += textScore;
+    reasons.push(`Text similarity: ${Math.round((unigramSim * 0.6 + bigramSim * 0.4) * 100)}%`);
+  }
+
+  // 3. Brand match (10 pts)
+  const lFeat = extractFeatures(`${lost.title} ${lost.description}`);
+  const fFeat = extractFeatures(`${found.title} ${found.description}`);
+  const brandMatch = lFeat.brands.filter(b => fFeat.brands.includes(b));
+  if (brandMatch.length > 0) {
+    score += 10;
+    reasons.push(`Brand match: ${brandMatch.join(', ')}`);
+  }
+
+  // 4. Color match (8 pts)
+  const colorMatch = lFeat.colors.filter(c => fFeat.colors.includes(c));
+  if (colorMatch.length > 0) {
+    score += 8;
+    reasons.push(`Color match: ${colorMatch.join(', ')}`);
+  }
+
+  // 5. Location proximity (15 pts)
+  const lLoc = lost.location.toLowerCase().split(/[,\s]+/);
+  const fLoc = found.location.toLowerCase().split(/[,\s]+/);
+  const locCommon = lLoc.filter(w => w.length > 2 && fLoc.includes(w));
+  if (locCommon.length > 0) {
+    score += Math.min(15, locCommon.length * 8);
+    reasons.push(`Location overlap: ${locCommon.join(', ')}`);
+  }
+
+  // 6. Temporal proximity (7 pts)
   const dayDiff = Math.abs(new Date(lost.date).getTime() - new Date(found.date).getTime()) / 86400000;
-  if (dayDiff <= 1) score += 10;
-  else if (dayDiff <= 3) score += 5;
-  return Math.min(98, score);
+  if (dayDiff <= 1) { score += 7; reasons.push('Found within 1 day'); }
+  else if (dayDiff <= 3) { score += 4; reasons.push('Found within 3 days'); }
+  else if (dayDiff <= 7) { score += 2; reasons.push('Found within a week'); }
+
+  // 7. Image presence bonus (5 pts)
+  if (lost.image && found.image) {
+    score += 5;
+    reasons.push('Both items have images for visual comparison');
+  }
+
+  return { score: Math.min(98, score), reasons };
 }
 
 export const ItemProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
