@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useItems } from "@/contexts/ItemContext";
 import { useNotifications } from "@/contexts/NotificationContext";
 import Navbar from "@/components/Navbar";
+import ImageUpload from "@/components/ImageUpload";
 import { categories } from "@/data/mockData";
 import { Search, Plus, MapPin, Calendar, Coins, Brain } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -25,6 +26,7 @@ const LostItems = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [matching, setMatching] = useState(false);
+  const [image, setImage] = useState<string | undefined>();
   const [form, setForm] = useState({ title: '', description: '', category: '', location: '', reward: '0' });
 
   useEffect(() => { if (!isAuthenticated) navigate('/auth'); }, [isAuthenticated]);
@@ -32,11 +34,12 @@ const LostItems = () => {
   const handleAdd = () => {
     if (!currentUser || !form.title || !form.category || !form.location) return;
     if (tab === 'lost') {
-      addLostItem({ ...form, date: new Date().toISOString().split('T')[0], reward: parseInt(form.reward) || 0, userId: currentUser.id, userName: currentUser.name, aiGenerated: !form.description });
+      addLostItem({ ...form, date: new Date().toISOString().split('T')[0], reward: parseInt(form.reward) || 0, userId: currentUser.id, userName: currentUser.name, aiGenerated: !form.description, image });
     } else {
-      addFoundItem({ ...form, date: new Date().toISOString().split('T')[0], userId: currentUser.id, userName: currentUser.name });
+      addFoundItem({ ...form, date: new Date().toISOString().split('T')[0], userId: currentUser.id, userName: currentUser.name, image });
     }
     setForm({ title: '', description: '', category: '', location: '', reward: '0' });
+    setImage(undefined);
     setShowAddDialog(false);
   };
 
