@@ -165,7 +165,7 @@ const LostItems = () => {
                   {item.image && (
                     <div className="relative">
                       <img src={item.image} alt={item.title} className="w-full h-36 object-cover rounded-lg mb-3" />
-                      {item.aiGenerated && (
+                      {'aiGenerated' in item && item.aiGenerated && (
                         <Badge className="absolute top-2 right-2 bg-primary/80 text-xs"><Sparkles className="h-3 w-3 mr-1" />AI Generated</Badge>
                       )}
                     </div>
