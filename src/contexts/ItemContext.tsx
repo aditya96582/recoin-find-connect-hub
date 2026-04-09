@@ -176,19 +176,15 @@ export const ItemProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const activeFound = foundItems.filter(i => i.status === 'active');
     for (const lost of activeLost) {
       for (const found of activeFound) {
-        const confidence = calculateMatch(lost, found);
-        if (confidence >= 60) {
-          const matchType = confidence >= 90 ? 'hybrid' : confidence >= 75 ? 'image' : 'text';
+        const { score, reasons } = calculateMatch(lost, found);
+        if (score >= 60) {
+          const matchType = score >= 90 ? 'hybrid' : score >= 75 ? 'image' : 'text';
           newMatches.push({
             id: `m_${Date.now()}_${Math.random().toString(36).slice(2)}`,
-            lostItemId: lost.id, foundItemId: found.id, confidence,
+            lostItemId: lost.id, foundItemId: found.id, confidence: score,
             matchType: matchType as 'text' | 'image' | 'hybrid',
             lostTitle: lost.title, foundTitle: found.title,
-            reasons: [
-              lost.category === found.category ? `Same category: ${lost.category}` : '',
-              `Confidence score: ${confidence}%`,
-              'AI keyword analysis match',
-            ].filter(Boolean),
+            reasons,
             timestamp: new Date().toISOString(),
           });
         }
