@@ -88,7 +88,7 @@ const LostItems = () => {
                   </div>
                   <div><Label>Location</Label><Input value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} placeholder="Where was it lost/found?" className="bg-secondary/50" /></div>
                   {tab === 'lost' && <div><Label>Reward (Tokens)</Label><Input type="number" value={form.reward} onChange={e => setForm({ ...form, reward: e.target.value })} className="bg-secondary/50" /></div>}
-                  <Button onClick={handleAdd} className="w-full">Submit Report</Button>
+                  <div><Label>Image (Optional)</Label><ImageUpload value={image} onChange={setImage} /></div>
                 </div>
               </DialogContent>
             </Dialog>
@@ -110,6 +110,9 @@ const LostItems = () => {
             <motion.div key={item.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
               <Card className={`glass hover:glow-primary transition-all ${item.status === 'resolved' ? 'opacity-50' : ''}`}>
                 <CardContent className="p-5">
+                  {item.image && (
+                    <img src={item.image} alt={item.title} className="w-full h-36 object-cover rounded-lg mb-3" />
+                  )}
                   <div className="flex items-start justify-between mb-3">
                     <Badge className={tab === 'lost' ? 'bg-destructive/20 text-destructive border-destructive/30' : 'bg-green-500/20 text-green-400 border-green-500/30'}>
                       {tab === 'lost' ? 'Lost' : 'Found'} • {item.status}
